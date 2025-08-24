@@ -22,16 +22,25 @@ const containerId = `tv_${Math.random().toString(36).slice(2)}`;
 let scriptEl = null;
 
 function loadScript() {
-  return new Promise((resolve) => {
-    if (window.TradingView) {
-      resolve();
+  return new Promise((resolve, reject) => {
+    if (window.TradingView) return resolve();
+
+    const src = '/api/tv.js';
+
+    const exist = document.querySelector(`script[src="${src}"]`);
+    if (exist) {
+      exist.addEventListener('load', resolve, { once: true });
+      exist.addEventListener('error', reject, { once: true });
       return;
     }
-    scriptEl = document.createElement("script");
-    scriptEl.src = "https://s3.tradingview.com/tv.js";
-    scriptEl.async = true;
-    scriptEl.onload = () => resolve();
-    document.head.appendChild(scriptEl);
+
+    const s = document.createElement('script');
+    s.src = src;
+    s.async = true;
+    s.crossOrigin = 'anonymous';
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
   });
 }
 
