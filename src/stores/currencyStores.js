@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import axios from "axios";
+import { http } from "../lib/customAxios.js";
 import { useMarketStore } from "./marketsStores";
 
 export const useCurrencyStore = defineStore("currency", {
@@ -9,38 +9,37 @@ export const useCurrencyStore = defineStore("currency", {
     error: null,
     lastFetched: null,
   }),
+
   getters: {
     getCurrencyByCode: (state) => (code) => {
-        if (!code) return null;
-        return state.currencies.find(
-          (c) => c.code.toLowerCase() === code.toLowerCase()
-        );
-      },
-    
-      currenciesWithoutMarket: (state) => {
-        const marketStore = useMarketStore();
-        const marketCodes = marketStore.markets.map((m) =>
-          m.pair.primary.toLowerCase()
-        );
-        return state.currencies.filter(
-          (currency) => !marketCodes.includes(currency.code.toLowerCase())
-        );
-      },
+      if (!code) return null;
+      return state.currencies.find(
+        (c) => c.code.toLowerCase() === String(code).toLowerCase()
+      );
+    },
+
+    currenciesWithoutMarket: (state) => {
+      const marketStore = useMarketStore(); // можно вызывать другие сторы в геттерах
+      return state.currencies.filter(
+        (c) => !marketStore.marketCodes.has(c.code.toLowerCase())
+      );
+    },
   },
+
   actions: {
-    async fetchCurrencies() {
+    async fetchCurrencies({ force = false } = {}) {
+      if (this.loading) return;
+      if (!force && this.lastFetched && Date.now() - this.lastFetched < 60_000) {
+        return;
+      }
       this.loading = true;
       this.error = null;
       try {
-        const response = await axios.get("/api/currency");
-        this.currencies = response.data;
-        this.lastFetched = new Date();
+        const { data } = await http.get("/currency");
+        this.currencies = Array.isArray(data) ? data : [];
+        this.lastFetched = Date.now();
       } catch (err) {
-        console.error("Error fetching currencies:", err);
-        this.error =
-          err.response?.data?.message ||
-          err.message ||
-          "Failed to fetch currencies";
+        this.error = err.message;
       } finally {
         this.loading = false;
       }
